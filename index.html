@@ -63,13 +63,14 @@ tr:hover .del{opacity:1}
  <button id="prev" title="Hari sebelumnya">◀</button><button id="next" title="Hari berikutnya">▶</button>
  <button id="pst">📥 Tempel daftar</button>
  <button id="add">+ Tambah baris</button>
+ <button id="all" title="Centang Sesuai dan Baik untuk semua bahan yang ada di daftar">☑ Centang semua</button>
  <button id="clr">Kosongkan centang</button>
  <span class="sp"></span>
  <span id="st" style="font-size:12px;opacity:.7">Tersimpan otomatis</span>
  <button id="wrd">📄 Simpan Word</button>
  <button class="p" id="prt">🖨 Cetak / Simpan PDF</button>
 </div>
-<div class="hint">Atur tanggal di atas, isi atau ubah kolom langsung di tabel, klik kotak Sesuai/Tidak dan Baik/Rusak untuk mencentang. Daftar bahan otomatis terbawa ke tanggal berikutnya.</div>
+<div class="hint">Pilih tanggal, lalu isi daftar lewat "Tempel daftar" atau ketik langsung di tabel. Tombol "Centang semua" langsung mencentang Sesuai dan Baik untuk semua bahan. Tanggal baru selalu mulai dengan tabel kosong.</div>
 <div class="pnl" id="pnl" hidden>
  <b>Tempel daftar bahan</b>
  <small>Satu bahan per baris: nama, jumlah, satuan (dipisah tab atau spasi lebar, bisa disalin langsung dari Excel/Word/chat).</small>
@@ -98,23 +99,24 @@ tr:hover .del{opacity:1}
 <script>
 (function(){
 var KEY="ppbb_v1",MIN=30;
-var DEF={kota:"Makassar",jab1:"Kepala SPPG Kota Makassar",jab2:"Tamalate Mannuruki 3",nama:"Ashad Ian Muhyl Ardiansyah Syam",
- tpl:[["Pisang ulin","50","sisir"],["Beras","18","kg"],["Tempe","6","bayam"],["Buncis","6","kg"],["Wortel kupas","6","kg"],["Saos tomat","2","jerigen"],["Minyak goreng bimoli 2L","2","pcs"],["Ayam","22","kg"]].map(function(r){return{n:r[0],q:r[1],s:r[2]}}),days:{}};
+var DEF={kota:"Makassar",jab1:"Kepala SPPG Kota Makassar",jab2:"Tamalate Mannuruki 3",nama:"Ashad Ian Muhyl Ardiansyah Syam",days:{}};
 var S;
 try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
-if(!S||!S.tpl)S=JSON.parse(JSON.stringify(DEF));
+if(!S||!S.days)S=JSON.parse(JSON.stringify(DEF));
 var BL=["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 var $=function(i){return document.getElementById(i)};
 var cur;
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));$("st").textContent="Tersimpan otomatis"}catch(e){$("st").textContent="Penyimpanan tidak tersedia"}}
 function iso(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
 function idn(s){var p=s.split("-");return +p[2]+" "+BL[+p[1]-1]+" "+p[0]}
+function blank(){return{n:"",q:"",s:"",j:"",k:""}}
 function rows(){
- if(!S.days[cur]){S.days[cur]=S.tpl.map(function(r){return{n:r.n,q:r.q,s:r.s,j:"",k:""}})}
- var a=S.days[cur];while(a.length<MIN)a.push({n:"",q:"",s:"",j:"",k:""});return a}
-function syncTpl(){S.tpl=rows().filter(function(r){return r.n||r.q||r.s}).map(function(r){return{n:r.n,q:r.q,s:r.s}})}
+ if(!S.days[cur])S.days[cur]=[];
+ var a=S.days[cur];while(a.length<MIN)a.push(blank());return a}
+function filled(){return rows().filter(function(r){return r.n||r.q||r.s})}
+function allOn(){var f=filled();return f.length>0&&f.every(function(r){return r.j==="ok"&&r.k==="baik"})}
 function inp(v,i,f){var t=document.createElement("td"),x=document.createElement("input");x.value=v;x.setAttribute("aria-label",f);
- x.oninput=function(){rows()[i][f]=x.value;syncTpl();save()};t.appendChild(x);return t}
+ x.oninput=function(){rows()[i][f]=x.value;save()};t.appendChild(x);return t}
 function chk(i,f,val){var t=document.createElement("td");t.className="c";var r=rows()[i];t.textContent=r[f]===val?"✓":"";
  t.onclick=function(){r[f]=r[f]===val?"":val;save();render()};return t}
 function render(){
@@ -122,16 +124,21 @@ function render(){
  a.forEach(function(r,i){
   var tr=document.createElement("tr"),n=document.createElement("td");n.className="n";n.textContent=i+1;
   var d=document.createElement("button");d.className="del";d.textContent="✕";d.title="Hapus baris";
-  d.onclick=function(){if(a.length>MIN||r.n||r.q||r.s){a.splice(i,1);syncTpl();save();render()}};n.appendChild(d);tr.appendChild(n);
+  d.onclick=function(){if(a.length>MIN||r.n||r.q||r.s){a.splice(i,1);save();render()}};n.appendChild(d);tr.appendChild(n);
   tr.appendChild(inp(r.n,i,"n"));tr.appendChild(inp(r.q,i,"q"));tr.appendChild(inp(r.s,i,"s"));
   tr.appendChild(chk(i,"j","ok"));tr.appendChild(chk(i,"j","no"));tr.appendChild(chk(i,"k","baik"));tr.appendChild(chk(i,"k","rusak"));
   tb.appendChild(tr)});
+ $("all").textContent=allOn()?"☐ Batalkan semua centang":"☑ Centang semua";
  $("ttdTgl").textContent=idn(cur)}
 function setDate(v){cur=v;$("tgl").value=v;S.last=v;save();render()}
 $("tgl").onchange=function(){if(this.value)setDate(this.value)};
 function shift(n){var p=cur.split("-"),d=new Date(+p[0],+p[1]-1,+p[2]+n);setDate(iso(d))}
 $("prev").onclick=function(){shift(-1)};$("next").onclick=function(){shift(1)};
-$("add").onclick=function(){rows().push({n:"",q:"",s:"",j:"",k:""});save();render();var i=document.querySelectorAll("#tb tr");i[i.length-1].querySelector("input").focus()};
+$("add").onclick=function(){rows().push(blank());save();render();var i=document.querySelectorAll("#tb tr");i[i.length-1].querySelector("input").focus()};
+$("all").onclick=function(){
+ var on=allOn();
+ filled().forEach(function(r){r.j=on?"":"ok";r.k=on?"":"baik"});
+ save();render()};
 $("pst").onclick=function(){var p=$("pnl");p.hidden=!p.hidden;if(!p.hidden)$("ta").focus()};
 $("cn").onclick=function(){$("pnl").hidden=true};
 $("go").onclick=function(){
@@ -145,8 +152,8 @@ $("go").onclick=function(){
  });
  if(!out.length){$("msg").textContent="Tidak ada baris yang terbaca";return}
  var rep=document.querySelector('input[name=md]:checked').value==="rep";
- var base=rep?[]:rows().filter(function(r){return r.n||r.q||r.s});
- S.days[cur]=base.concat(out);syncTpl();save();render();
+ var base=rep?[]:filled();
+ S.days[cur]=base.concat(out);save();render();
  $("ta").value="";$("msg").textContent="";$("pnl").hidden=true;
 };
 $("clr").onclick=function(){rows().forEach(function(r){r.j="";r.k=""});save();render()};
